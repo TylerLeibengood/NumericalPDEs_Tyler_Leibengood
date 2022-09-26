@@ -149,10 +149,7 @@ class Polynomial:
         return Polynomial(coeffs)
     
     def __eq__(self, other):
-        if len(self.coeffs) == len(other.coeffs):
-            if self.coeffs == other.coeffs:
-                return True
-        return False
+        return np.array_equal(self.coeffs,other.coeffs)
     
     #def __truediv__(self, other):
     #    return Fraction(self.numerator*other.denominator,
