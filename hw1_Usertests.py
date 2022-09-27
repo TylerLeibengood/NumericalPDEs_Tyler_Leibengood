@@ -1,6 +1,7 @@
 import pytest
 
 from polynomial import Polynomial
+from polynomial import RationalPolynomial
 
 def test_rat_polynomial_definition():
     a = Polynomial.from_string("7 + x^3")
