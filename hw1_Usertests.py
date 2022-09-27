@@ -38,7 +38,7 @@ def test_rat_polynomial_eq3():
 def test_rat_polynomial_addition():
     a = RationalPolynomial.from_string("(5 - 6*x)/(1 + x)")
     b = RationalPolynomial.from_string("(-4 + 3*x^2)/(1 - x)")
-    c = RationalPolynomial.from_string("(1 - 12*x + 9*x^2)/(1 - x^2)")
+    c = RationalPolynomial.from_string("(1 - 15*x + 9*x^2 + 3*x^3)/(1 - x^2)")
     assert a + b == c
 
 def test_rat_polynomial_addition2():
@@ -62,7 +62,7 @@ def test_rat_polynomial_addition4():
 def test_rat_polynomial_subtraction():
     a = RationalPolynomial.from_string("(5 - 6*x)/(1 + x)")
     b = RationalPolynomial.from_string("(4 - 3*x^2)/(1 - x)")
-    c = RationalPolynomial.from_string("(1 - 12*x + 9*x^2)/(1 - x^2)")
+    c = RationalPolynomial.from_string("(1 - 15*x + 9*x^2 + 3*x^3)/(1 - x^2)")
     assert a - b == c
 
 def test_rat_polynomial_subtraction2():
