@@ -18,6 +18,8 @@ class Polynomial:
 
         #Clean string
         string = string.replace(" ","")     #Remove spaces
+        string = string.replace(")","")     #Remove parenthesis
+        string = string.replace("(","")
         i=0
         while i<len(string)-1:
             if string[i:i+2]=="+-":         #replaces all instances of "+-" and "-+" with "-"
@@ -57,7 +59,6 @@ class Polynomial:
         string = string.replace("x^","1,")  #for the case of no coefficient
         string = string.replace("x","1,1")  #for the case where no exponent and no coefficient
         terms = string.split("+")           #string array of terms
-        
         #Deal with order 0 terms
         i=0
         while i<len(terms):
@@ -66,7 +67,6 @@ class Polynomial:
             else:
                 terms[i]=terms[i]+",0"
                 i+=1
-        
         #Define arrays for splitting and organizing terms
         Nterms = len(terms)
         powers = np.zeros(Nterms, dtype=int)#unordered powers
@@ -92,7 +92,9 @@ class Polynomial:
         i=0
         string=""
         while i<self.order+1:
-            if self.coeffs[i]!=0 and string=="":
+            if np.array_equal(self.coeffs,np.array([0],dtype=int)):
+                string="0"
+            elif self.coeffs[i]!=0 and string=="":
                 if i==0:
                     string = str(self.coeffs[0])
                 elif i==1:
@@ -123,7 +125,9 @@ class Polynomial:
     
     def _reduce(self):
         coeffs=self.coeffs
-        if coeffs[-1]==0:
+        if np.array_equal(coeffs,np.zeros(len(coeffs), dtype=int)):
+            self.coeffs = np.array([0], dtype=int)
+        elif coeffs[-1]==0:
             i=len(coeffs)-1
             flag=0
             while flag==0:
@@ -132,6 +136,7 @@ class Polynomial:
                 else:
                     i-=1
             self.coeffs=coeffs[:i+1]
+        self.order = len(self.coeffs)-1
             
     def __mul__(self, other):
         return Polynomial(np.flip(np.polymul(np.flip(self.coeffs),np.flip(other.coeffs))))
@@ -148,9 +153,124 @@ class Polynomial:
         coeffs=np.subtract(Cself,Cother)
         return Polynomial(coeffs)
     
+    def __truediv__(self, other):
+        return RationalPolynomial(self,other)
+    
     def __eq__(self, other):
         return np.array_equal(self.coeffs,other.coeffs)
     
-    #def __truediv__(self, other):
-    #    return Fraction(self.numerator*other.denominator,
-    #                    self.denominator*other.numerator)
+class RationalPolynomial:
+    
+    def __init__(self, Numerator, Denominator):
+        self.Numerator = Numerator
+        self.Denominator = Denominator
+        self._reduce()
+    
+    @staticmethod
+    def from_string(string):
+        Numerator   = Polynomial.from_string(string.split("/")[0])
+        Denominator = Polynomial.from_string(string.split("/")[1])
+        return RationalPolynomial(Numerator, Denominator)
+    
+    def __repr__(self):
+        string = "("+str(self.Numerator) + ")/(" + str(self.Denominator) + ")"
+        return string
+    
+    def __add__(self, other):
+        Numerator = ( (self.Numerator * other.Denominator)
+                    + (other.Numerator * self.Denominator))
+        Denominator = self.Denominator * other.Denominator
+        return RationalPolynomial(Numerator, Denominator)
+    
+    def _reduce(self):
+        #Setup relavent variables
+        Numerator = self.Numerator
+        Denominator = self.Denominator
+        Ncoeffs = Numerator.coeffs
+        Dcoeffs = Denominator.coeffs
+        NLead = Ncoeffs[len(Ncoeffs)-1]
+        DLead = Dcoeffs[len(Dcoeffs)-1]
+        #print("Numerator: ", Numerator)
+        #print("Denominator: ", Denominator)
+        #print("Ncoeffs: ", Ncoeffs)
+        #print("Dcoeffs: ", Dcoeffs)
+        #print("NLead: ", NLead)
+        #print("DLead: ", DLead)
+        
+        #In the case of equal numerator and denominator
+        if np.array_equal(Ncoeffs,Dcoeffs):
+            self.Numerator = Polynomial(np.array([1], dtype=int))
+            self.Denominator = Polynomial(np.array([1], dtype=int))
+        
+        #In the case of zero numerator
+        elif np.array_equal(Ncoeffs,np.array([0], dtype=int)):
+            self.Denominator = Polynomial(np.array([1], dtype=int))
+        
+        #Cancel common terms if they exist
+        else:
+            NumRoots = np.sort_complex(np.roots(np.flip(Ncoeffs)))
+            DenRoots = np.sort_complex(np.roots(np.flip(Dcoeffs)))
+            CommonRoots = np.intersect1d(NumRoots,DenRoots)          #Already sorted
+            #print("initial NumRoots: ", NumRoots)
+            #print("initial DenRoots: ", DenRoots)
+            #print("initial Common Roots: ", CommonRoots)
+            while not np.array_equal(CommonRoots,np.array([])):
+                for k in CommonRoots:
+                    N_rootLoc = np.where(NumRoots==k)[0]
+                    D_rootLoc = np.where(DenRoots==k)[0]
+                    
+                    NumRoots = np.delete(NumRoots,N_rootLoc[0])
+                    DenRoots = np.delete(DenRoots,D_rootLoc[0])
+                    CommonRoots = np.intersect1d(NumRoots,DenRoots)
+            #print("Final NumRoots: ", NumRoots, type(NumRoots))
+            #print("Final DenRoots: ", DenRoots, type(DenRoots))
+
+            if np.array_equal(NumRoots,np.array([])):
+                Ncoeffs = NLead*np.array([1], dtype=int)
+            else:
+                Ncoeffs = np.rint(float(NLead)*np.flip(np.poly(NumRoots))).astype(int)
+            if np.array_equal(DenRoots,np.array([])):
+                Dcoeffs = DLead*np.array([1], dtype=int)
+            else:
+                Dcoeffs = np.rint(float(DLead)*np.flip(np.poly(DenRoots))).astype(int)
+            
+            #print("semiFinal Ncoeffs: ", Ncoeffs, type(NumRoots))
+            #print("semiFinal Dcoeffs: ", Dcoeffs, type(DenRoots))
+            
+            #Fix sign of leading coefficients and reduce coeffs
+            gcd = math.gcd(*Ncoeffs, *Dcoeffs)
+            #print("gcd = ", gcd)
+            Ncoeffs = Ncoeffs // gcd
+            Dcoeffs = Dcoeffs // gcd
+            NLead = Ncoeffs[len(Ncoeffs)-1]
+            DLead = Dcoeffs[len(Dcoeffs)-1]
+            if DLead < 0:
+                Ncoeffs *= -1
+                Dcoeffs *= -1
+
+            #print("Final Ncoeffs: ", Ncoeffs)
+            #print("Final Dcoeffs: ", Dcoeffs)
+            
+            self.Numerator = Polynomial(Ncoeffs)
+            self.Denominator = Polynomial(Dcoeffs)
+            
+    def __neg__(self):
+        Numerator = Polynomial.from_string("-1")*self.Numerator
+        return RationalPolynomial(Numerator, self.Denominator)
+    
+    def __sub__(self, other):
+        return self + (-other)
+    
+    def __mul__(self, other):
+        return RationalPolynomial(self.Numerator*other.Numerator,
+                        self.Denominator*other.Denominator)
+    
+    def __truediv__(self, other):
+        return RationalPolynomial(self.Numerator*other.Denominator,
+                        self.Denominator*other.Numerator)
+    
+    def __eq__(self, other):
+        if self.Numerator == other.Numerator:
+            if self.Denominator == other.Denominator:
+                return True
+        return False
