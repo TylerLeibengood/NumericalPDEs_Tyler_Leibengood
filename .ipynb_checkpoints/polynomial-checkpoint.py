@@ -1,6 +1,5 @@
 import math
 import numpy as np
-import re
 
 # Definition of a polynomial is stored in arrays coeffs
 # Length of array denotes maximum order, an entry denotes the coefficient, the index is the order of the term.
