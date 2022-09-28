@@ -46,8 +46,10 @@ def test_rat_polynomial_addition2():
     a = RationalPolynomial.from_string("(-x^3 + 8*x + 3)/(3 - x)")
     b = RationalPolynomial.from_string("(-6*x^3 - 25*x^2 - 2*x - 9)/(7*x - 1)")
     c = RationalPolynomial.from_string("(x^3 - 5*x^2 + 2*x - 10)/(7*x - 1)")
+    d=a+b
     print("a: ",a," ",a.Numerator.coeffs," ",a.Denominator.coeffs)
     print("b: ",b," ",b.Numerator.coeffs," ",b.Denominator.coeffs)
+    print("a+b: ",d," ",d.Numerator.coeffs," ",d.Denominator.coeffs)
     print("c: ",c," ",c.Numerator.coeffs," ",c.Denominator.coeffs)
     assert a + b == c
 	
@@ -73,8 +75,10 @@ def test_rat_polynomial_subtraction2():
     a = RationalPolynomial.from_string("(-x^3 + 8*x + 3)/(3 - x)")
     b = RationalPolynomial.from_string("(6*x^3 + 25*x^2 + 2*x + 9)/(7*x - 1)")
     c = RationalPolynomial.from_string("(x^3 - 5*x^2 + 2*x - 10)/(7*x - 1)")
+    d=a-b
     print("a: ",a," ",a.Numerator.coeffs," ",a.Denominator.coeffs)
     print("b: ",b," ",b.Numerator.coeffs," ",b.Denominator.coeffs)
+    print("a-b: ",d," ",d.Numerator.coeffs," ",d.Denominator.coeffs)
     print("c: ",c," ",c.Numerator.coeffs," ",c.Denominator.coeffs)
     assert a - b == c
 	
