@@ -59,3 +59,4 @@ def test_polynomial_multiplication2():
     b = Polynomial.from_string("2 - x + 3*x^2")
     c = Polynomial.from_string("6 + 4*x^3 - 3*x + 5*x^2 - 7*x^4 + 3*x^5")
     assert a * b == c
+
