@@ -209,14 +209,28 @@ class RationalPolynomial:
         else:
             NumRoots = np.sort_complex(np.roots(np.flip(Ncoeffs)))
             DenRoots = np.sort_complex(np.roots(np.flip(Dcoeffs)))
-            CommonRoots = np.intersect1d(NumRoots,DenRoots)          #Already sorted
+            CommonRoots = np.zeros(max(len(NumRoots),len(DenRoots)), dtype=complex)
+            i=0
+            k=0
+            while i<len(NumRoots):
+                j=0
+                while j<len(DenRoots):
+                    if np.isclose(NumRoots[i],DenRoots[j], 1e-10):
+                        CommonRoots[k]=(NumRoots[i]+DenRoots[j])/2
+                        k+=1
+                    j+=1
+                i+=1
+            CommonRoots = CommonRoots[:k]
+            #CommonRoots = np.intersect1d(NumRoots,DenRoots)          #Already sorted
+            
             #print("initial NumRoots: ", NumRoots)
             #print("initial DenRoots: ", DenRoots)
             #print("initial Common Roots: ", CommonRoots)
+            
             while not np.array_equal(CommonRoots,np.array([])):
                 for k in CommonRoots:
-                    N_rootLoc = np.where(NumRoots==k)[0]
-                    D_rootLoc = np.where(DenRoots==k)[0]
+                    N_rootLoc = np.where(np.isclose(NumRoots,k,1e-10))[0]
+                    D_rootLoc = np.where(np.isclose(DenRoots,k,1e-10))[0]
                     
                     NumRoots = np.delete(NumRoots,N_rootLoc[0])
                     DenRoots = np.delete(DenRoots,D_rootLoc[0])
