@@ -210,22 +210,32 @@ class RationalPolynomial:
             NumRoots = np.sort_complex(np.roots(np.flip(Ncoeffs)))
             DenRoots = np.sort_complex(np.roots(np.flip(Dcoeffs)))
             CommonRoots = np.zeros(max(len(NumRoots),len(DenRoots)), dtype=complex)
+                    
+            #print("initial NumRoots: ", NumRoots)
+            #print("initial DenRoots: ", DenRoots)
+            #print("initial Common Roots: ", CommonRoots)
+            
             i=0
             k=0
+            NumAccounted=np.zeros(len(NumRoots))
+            DenAccounted=np.zeros(len(DenRoots))
             while i<len(NumRoots):
                 j=0
                 while j<len(DenRoots):
-                    if np.isclose(NumRoots[i],DenRoots[j], 1e-10):
-                        CommonRoots[k]=(NumRoots[i]+DenRoots[j])/2
-                        k+=1
+                    if NumAccounted[i]==0 and DenAccounted[j]==[0]:
+                        if np.isclose(NumRoots[i],DenRoots[j], 1e-10):
+                            #print(k)
+                            CommonRoots[k]=(NumRoots[i]+DenRoots[j])/2
+                            NumAccounted[i]=k+1
+                            DenAccounted[j]=k+1
+                            #print("NumAccounted: ",NumAccounted)
+                            #print("DenAccounted: ",DenAccounted)
+                            k+=1
+                            break
                     j+=1
                 i+=1
             CommonRoots = CommonRoots[:k]
             #CommonRoots = np.intersect1d(NumRoots,DenRoots)          #Already sorted
-            
-            #print("initial NumRoots: ", NumRoots)
-            #print("initial DenRoots: ", DenRoots)
-            #print("initial Common Roots: ", CommonRoots)
             
             while not np.array_equal(CommonRoots,np.array([])):
                 for k in CommonRoots:
