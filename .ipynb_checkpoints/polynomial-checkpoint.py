@@ -223,7 +223,7 @@ class RationalPolynomial:
                 j=0
                 while j<len(DenRoots):
                     if NumAccounted[i]==0 and DenAccounted[j]==[0]:
-                        if np.isclose(NumRoots[i],DenRoots[j], 1e-10):
+                        if np.isclose(NumRoots[i],DenRoots[j], 1e-5):
                             #print(k)
                             CommonRoots[k]=(NumRoots[i]+DenRoots[j])/2
                             NumAccounted[i]=k+1
@@ -239,8 +239,8 @@ class RationalPolynomial:
             
             while not np.array_equal(CommonRoots,np.array([])):
                 for k in CommonRoots:
-                    N_rootLoc = np.where(np.isclose(NumRoots,k,1e-10))[0]
-                    D_rootLoc = np.where(np.isclose(DenRoots,k,1e-10))[0]
+                    N_rootLoc = np.where(np.isclose(NumRoots,k,1e-5))[0]
+                    D_rootLoc = np.where(np.isclose(DenRoots,k,1e-5))[0]
                     
                     NumRoots = np.delete(NumRoots,N_rootLoc[0])
                     DenRoots = np.delete(DenRoots,D_rootLoc[0])
