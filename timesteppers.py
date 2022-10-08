@@ -72,16 +72,16 @@ class Multistage(Timestepper):
 
     def __init__(self, u, f, stages, a, b):
         super().__init__(u, f)   #Sets self.t = 0
-                                 #self.iter = 0
+        self.stages=stages       #self.iter = 0
                                  #self.u = u
                                  #self.func = f
                                  #self.dt = None
         pass
     def _step(self, dt):
         N=len(self.u)
-        k=np.zeros((stages, N))
+        k=np.zeros((self.stages, N))
         i=0
-        while i<stages:
+        while i<self.stages:
             #print("k: ", k)
             k[i]=f(self.u + dt*a[i] @ k)
             i+=1
