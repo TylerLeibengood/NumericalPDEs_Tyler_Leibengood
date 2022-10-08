@@ -28,4 +28,4 @@ jobs:
     - name: Test script with pytest
       if: always()
       run: |
-        pytest hw3_test1.py
+        pytest hw3_tests1.py
