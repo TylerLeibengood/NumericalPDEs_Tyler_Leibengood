@@ -83,7 +83,7 @@ class Multistage(Timestepper):
         i=0
         while i<self.stages:
             #print("k: ", k)
-            k[i]=f(self.u + dt*a[i] @ k)
+            k[i]=self.func(self.u + dt*a[i] @ k)
             i+=1
         return self.u + dt*b @ k
 
