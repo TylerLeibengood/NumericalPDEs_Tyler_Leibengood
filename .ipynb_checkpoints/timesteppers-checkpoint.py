@@ -73,8 +73,8 @@ class Multistage(Timestepper):
     def __init__(self, u, f, stages, a, b):
         super().__init__(u, f)   #Sets self.t = 0
         self.stages=stages       #self.iter = 0
-                                 #self.u = u
-                                 #self.func = f
+        self.a=a                 #self.u = u
+        self.b=b                 #self.func = f
                                  #self.dt = None
         pass
     def _step(self, dt):
@@ -83,9 +83,9 @@ class Multistage(Timestepper):
         i=0
         while i<self.stages:
             #print("k: ", k)
-            k[i]=self.func(self.u + dt*a[i] @ k)
+            k[i]=self.func(self.u + dt*self.a[i] @ k)
             i+=1
-        return self.u + dt*b @ k
+        return self.u + dt*self.b @ k
 
 class AdamsBashforth(Timestepper):
 
