@@ -72,7 +72,6 @@ class DifferenceUniformGrid:
         DuT = sparse.diags(a[:mid], upperTri, shape=(N, N))
         DlT = sparse.diags(a[mid+1:], lowerTri, shape=(N, N))
         D = Dmd + DuT + DlT
-        #plot_2D(D.A)
         self.matrix = D
         pass
 

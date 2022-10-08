@@ -72,7 +72,7 @@ class DifferenceUniformGrid:
         DuT = sparse.diags(a[:mid], upperTri, shape=(N, N))
         DlT = sparse.diags(a[mid+1:], lowerTri, shape=(N, N))
         D = Dmd + DuT + DlT
-        #plot_2D(D.A)
+        plot_2D(D.A)
         self.matrix = D
         pass
 
@@ -144,3 +144,18 @@ class DifferenceNonUniformGrid:
 
     def __matmul__(self, other):
         return self.matrix @ other
+    
+def plot_2D(matrix, title='FD matrix'):
+    lim_margin = -0.05
+    fig = plt.figure(figsize=(3,3))
+    ax = fig.add_subplot()
+    I, J = matrix.shape
+    matrix_mag = np.log10(np.abs(matrix))
+    ax.pcolor(matrix_mag[::-1])
+    ax.set_xlim(-lim_margin, I+lim_margin)
+    ax.set_ylim(-lim_margin, J+lim_margin)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect('equal', 'box')
+    plt.title(title)
+    plt.tight_layout()
