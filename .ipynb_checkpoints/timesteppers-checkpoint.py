@@ -1,4 +1,7 @@
+import math
 import numpy as np
+import finite
+import matplotlib.pyplot as plt
 
 class Timestepper:
 
@@ -68,12 +71,21 @@ class LaxWendroff(Timestepper):
 class Multistage(Timestepper):
 
     def __init__(self, u, f, stages, a, b):
-        super().__init__(u, f)
+        super().__init__(u, f)   #Sets self.t = 0
+                                 #self.iter = 0
+                                 #self.u = u
+                                 #self.func = f
+                                 #self.dt = None
         pass
-
     def _step(self, dt):
-        pass
-
+        N=len(self.u)
+        k=np.zeros((stages, N))
+        i=0
+        while i<stages:
+            #print("k: ", k)
+            k[i]=f(self.u + dt*a[i] @ k)
+            i+=1
+        return self.u + dt*b @ k
 
 class AdamsBashforth(Timestepper):
 
@@ -83,4 +95,3 @@ class AdamsBashforth(Timestepper):
 
     def _step(self, dt):
         pass
-
