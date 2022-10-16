@@ -15,7 +15,7 @@ def test_RK_2_2(resolution):
 
     target = np.exp(-(x-np.pi-2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 2, grid)
+    d = finite.CenteredFiniteDifference(grid)
     f = lambda u: d @ u
 
     stages = 2
@@ -43,7 +43,7 @@ def test_RK_2_4(resolution):
 
     target = np.exp(-(x-np.pi+2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 4, grid)
+    d = finite.CenteredFiniteDifference4(grid)
     f = lambda u: d @ u
 
     stages = 2
@@ -71,7 +71,7 @@ def test_RK_3_2(resolution):
 
     target = np.exp(-(x-np.pi-2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 2, grid)
+    d = finite.CenteredFiniteDifference(grid)
     f = lambda u: d @ u
 
     stages = 3
@@ -100,7 +100,7 @@ def test_RK_3_4(resolution):
 
     target = np.exp(-(x-np.pi+2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 4, grid)
+    d = finite.CenteredFiniteDifference4(grid)
     f = lambda u: d @ u
 
     stages = 3
@@ -129,7 +129,7 @@ def test_RK_4_2(resolution):
 
     target = np.exp(-(x-np.pi-2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 2, grid)
+    d = finite.CenteredFiniteDifference(grid)
     f = lambda u: d @ u
     
     stages = 4
@@ -159,7 +159,7 @@ def test_RK_4_4(resolution):
 
     target = np.exp(-(x-np.pi+2*np.pi*0.2)**2*8)
 
-    d = finite.DifferenceUniformGrid(1, 4, grid)
+    d = finite.CenteredFiniteDifference4(grid)
     f = lambda u: d @ u
 
     stages = 4
