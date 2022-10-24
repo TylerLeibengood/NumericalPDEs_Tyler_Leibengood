@@ -18,10 +18,7 @@ def test_RK_2_2(resolution):
     d = finite.DifferenceUniformGrid(1, 2, grid)
     f = lambda u: d @ u
 
-    stages = 2
-    a = np.array([[  0,   0],
-                  [1/2,   0]])
-    b = np.array([0, 1])
+    steps = 2
     
     ts = timesteppers.Multistage(IC, f, stages, a, b)
 
