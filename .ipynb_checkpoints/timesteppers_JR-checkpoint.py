@@ -188,7 +188,7 @@ class BackwardDifferentiationFormula(Timestepper):
             temp_dt = 0
             for j in range(0,s+1):
                 temp_dt += self.delta_ts[j]
-                mat[i,j] = 1/factorial(i)*((-1*temp_dt)**(i))
+                mat[i,j] = (temp_dt**(i))
 
         aas = np.linalg.inv(mat) @ dts
         
@@ -196,7 +196,7 @@ class BackwardDifferentiationFormula(Timestepper):
         for i in range(1,s+1):
             sums += aas[i]*self.u_olds[i]
         
-        newmat = self.L_op.matrix - aas[0]*np.identity(len(self.u))
+        newmat = self.L_op.matrix - a[0]*np.identity(len(self.u))
         solution = np.linalg.inv(newmat) @ sums
         solution = np.array(solution)
         solution.resize(len(self.u))
