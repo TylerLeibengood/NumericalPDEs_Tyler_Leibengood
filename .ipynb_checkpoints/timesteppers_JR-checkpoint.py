@@ -12,6 +12,7 @@ class Timestepper:
         self.u = u
         self.func = f
         self.dt = None
+        
 
     def step(self, dt):
         self.u = self._step(dt)
@@ -76,79 +77,63 @@ class Multistage(Timestepper):
         self.stages = stages
         self.a = a
         self.b = b
-
-        self.u_list = []
-        self.K_list = []
-        for i in range(self.stages):
-            self.u_list.append(np.copy(u))
-            self.K_list.append(np.copy(u))
+        pass
 
     def _step(self, dt):
-        u = self.u
-        u_list = self.u_list
-        K_list = self.K_list
-        stages = self.stages
-
-        np.copyto(u_list[0], u)
-        for i in range(1, stages):
-            K_list[i-1] = self.func(u_list[i-1])
-
-            np.copyto(u_list[i], u)
-            # this loop is slow -- should make K_list a 2D array
-            for j in range(i):
-                u_list[i] += self.a[i, j]*dt*K_list[j]
-
-        K_list[-1] = self.func(u_list[-1])
-
-        # this loop is slow -- should make K_list a 2D array
-        for i in range(stages):
-            u += self.b[i]*dt*K_list[i]
-
-        return u
+        ks = [None]*self.stages
+        for i in range(0,self.stages):
+            addterm = np.zeros(len(self.u))
+            for j in range(0, i):
+                addterm += ks[j]*self.a[i,j]
+            ks[i] = self.func(self.u+(dt*addterm))
+        sumks = np.zeros(len(self.u))
+        for i in range(0,self.stages):
+            sumks += self.b[i]*ks[i]
+        return self.u + dt*sumks
 
 
 class AdamsBashforth(Timestepper):
 
-    def __init__(self, u, L_op, steps, dt):
-        super().__init__(u, L_op)
+    def __init__(self, u, f, steps, dt):
+        super().__init__(u, f)
         self.steps = steps
         self.dt = dt
-        self.f_list = deque()
-        for i in range(self.steps):
-            self.f_list.append(np.copy(u))
+        self.u_olds = [None]*steps
 
     def _step(self, dt):
-        f_list = self.f_list
-        f_list.rotate()
-        f_list[0] = self.func(self.u)
-        if self.iter < self.steps:
-            coeffs = self._coeffs(self.iter+1)
+        if (self.iter + 1) < self.steps:
+            s = self.iter + 1
         else:
-            coeffs = self._coeffs(self.steps)
-
-        for i, coeff in enumerate(coeffs):
-            self.u += self.dt*coeff*self.f_list[i].data
-        return self.u
-
-    def _coeffs(self, num):
-
-        i = (1 + np.arange(num))[None, :]
-        j = (1 + np.arange(num))[:, None]
-        S = (-i)**(j-1)/factorial(j-1)
-
-        b = (-1)**(j+1)/factorial(j)
-
-        a = np.linalg.solve(S, b)
-        return a
-
-
+            s = self.steps
+            
+        for i in range(1, len(self.u_olds)):
+            self.u_olds[len(self.u_olds)-i] = self.u_olds[len(self.u_olds)-i-1]
+        self.u_olds[0] = self.u    
+        
+        aas = np.zeros(s)
+        coeffs = np.zeros(s)
+        for i in range(len(coeffs)):
+            coeffs[i] = 1/factorial(i+1)
+        
+        mat = np.zeros(shape = (s,s))
+        for i in range(0,s):
+            for j in range(0,s):
+                mat[i,j] = ((-1)**i)*(j**i)/factorial(i)
+        invmat = np.linalg.inv(mat)
+        aas = invmat @ coeffs
+        
+        nusum = np.zeros(len(self.u))
+        for i in range(0,s):
+            nusum += aas[i]*self.func(self.u_olds[i])
+        
+        return self.u + self.dt*nusum
+    
+    
 class BackwardEuler(Timestepper):
-
     def __init__(self, u, L):
         super().__init__(u, L)
         N = len(u)
         self.I = sparse.eye(N, N)
-
     def _step(self, dt):
         if dt != self.dt:
             self.LHS = self.I - dt*self.func.matrix
@@ -156,14 +141,11 @@ class BackwardEuler(Timestepper):
         self.dt = dt
         return self.LU.solve(self.u)
 
-
 class CrankNicolson(Timestepper):
-
     def __init__(self, u, L_op):
         super().__init__(u, L_op)
         N = len(u)
         self.I = sparse.eye(N, N)
-
     def _step(self, dt):
         if dt != self.dt:
             self.LHS = self.I - dt/2*self.func.matrix
@@ -172,14 +154,13 @@ class CrankNicolson(Timestepper):
         self.dt = dt
         return self.LU.solve(self.RHS @ self.u)
 
-
 class BackwardDifferentiationFormula(Timestepper):
     def __init__(self, u, L_op, steps):
         super().__init__(u, L_op)
         self.L_op = L_op
         self.steps = steps
-        self.past = [None]*(steps+1)
-        self.dts = np.zeros(steps+1)
+        self.u_olds = [None]*(steps+1)
+        self.delta_ts = np.zeros(steps+1)
         
     def _step(self, dt):
         #Account for initial condition where not enough previous steps exist
@@ -189,39 +170,38 @@ class BackwardDifferentiationFormula(Timestepper):
             s = self.steps
         
         #Fix U_olds and create array of delta ts for previous steps
-        for i in range(1, len(self.past)):
-            self.past[len(self.past)-i] = self.past[len(self.past)-i-1]
-            self.dts[len(self.dts)-i] = self.dts[len(self.dts)-i-1]
-        self.past[0] = np.zeros(len(self.u))
-        self.past[1] = self.u
-        self.dts[0] = 0
-        self.dts[1] = dt
+        for i in range(1, len(self.u_olds)):
+            self.u_olds[len(self.u_olds)-i] = self.u_olds[len(self.u_olds)-i-1]
+            self.delta_ts[len(self.delta_ts)-i] = self.delta_ts[len(self.delta_ts)-i-1]
+        self.u_olds[0] = np.zeros(len(self.u))
+        self.u_olds[1] = self.u
+        self.delta_ts[0] = 0
+        self.delta_ts[1] = dt
         
             
-        a = np.zeros(s+1)
-        deets = np.zeros(s+1)
-        deets[1] = 1
+        aas = np.zeros(s+1)
+        dts = np.zeros(s+1)
+        dts[1] = 1
         
-        M = np.zeros(shape=(s+1,s+1))
+        mat = np.zeros(shape=(s+1,s+1))
         for i in range(0,s+1):
             temp_dt = 0
             for j in range(0,s+1):
-                temp_dt += self.dts[j]
-                M[i,j] = (temp_dt**(i))
+                temp_dt += self.delta_ts[j]
+                mat[i,j] = 1/factorial(i)*((-1*temp_dt)**(i))
 
-        a = np.linalg.inv(M) @ deets
+        aas = np.linalg.inv(mat) @ dts
         
         sums = np.zeros(len(self.u))
         for i in range(1,s+1):
-            sums += a[i]*self.past[i]
+            sums += aas[i]*self.u_olds[i]
         
         newmat = self.L_op.matrix - aas[0]*np.identity(len(self.u))
-        sol = np.linalg.inv(newmat) @ sums
-        sol = np.array(sol)
-        sol.resize(len(self.u))
-        return sol
-
-
+        solution = np.linalg.inv(newmat) @ sums
+        solution = np.array(solution)
+        solution.resize(len(self.u))
+        return solution
+    
 class StateVector:
     
     def __init__(self, variables):
@@ -304,8 +284,67 @@ class BDFExtrapolate(IMEXTimestepper):
     def __init__(self, eq_set, steps):
         super().__init__(eq_set)
         self.steps = steps
-        pass
+        self.X_olds = [None]*(steps+1)
+        self.F_olds = [None]*(steps+1)
+        
+        
 
     def _step(self, dt):
-        pass
-
+        
+        #Determine steps
+        if (self.iter + 1) < self.steps:
+            s = self.iter + 1
+        else:
+            s = self.steps
+        
+        #Fix X_olds and F_olds
+        
+        Fx = self.F(self.X)
+        
+        for i in range(1, len(self.X_olds)):
+            self.X_olds[len(self.X_olds)-i] = self.X_olds[len(self.X_olds)-i-1]
+            self.F_olds[len(self.F_olds)-i] = self.F_olds[len(self.F_olds)-i-1]
+        self.X_olds[0] = np.zeros(self.X.N)
+        self.X_olds[1] = self.X
+        self.F_olds[0] = np.zeros(self.X.N)
+        self.F_olds[1] = Fx
+         
+        #calculate a coefficients
+        ais = np.zeros(s+1)
+        dts = np.zeros(s+1)
+        dts[1] = 1
+        
+        mat = np.zeros(shape=(s+1,s+1))
+        for i in range(0,s+1):
+            for j in range(0,s+1):
+                mat[i,j] = 1/factorial(i)*((-1*(j+1)*dt)**(i))
+        ais = np.linalg.inv(mat) @ dts 
+        
+        #calculate b coefficients         
+        bis = np.zeros(s+1)
+        dt2s = np.zeros(s+1)
+        dt2s[0] = 1
+        
+        for k in range(1,s+2):
+            bis[k-1] = (-1)**(k-1)*factorial(s+1)/(factorial(s+1-k)*factorial(k))
+        mat2 = np.zeros(shape=(s+1,s+1))
+        for i in range(0,s+1):
+            for j in range(0,s+1):
+                mat2[i,j] = 1/factorial(i)*((-1*(j+1)*dt)**(i))
+        print('Mat1 is: \n',mat)
+        print('Mat2 is: \n', mat2)
+        print('the ai matrix is: ',ais)
+        print('the bi matrix is: ', bis,'\n')
+        
+        #compute sum of fs and sum of ais starting at 1
+        suma1 = np.zeros(self.X.N)
+        fsum = np.zeros(self.X.N)
+        for i in range(1,s+1):
+            suma1 += ais[i]*self.X_olds[i].data
+            fsum += bis[i]*self.F_olds[i]
+        
+        #finish off the problem
+        Right = self.M*ais[0]+self.L
+        Left = fsum - self.M@suma1
+        invR = spla.inv(Right)
+        return invR @ Left
