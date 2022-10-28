@@ -215,7 +215,7 @@ class BackwardDifferentiationFormula(Timestepper):
         for i in range(1,s+1):
             sums += a[i]*self.past[i]
         
-        newmat = self.L_op.matrix - aas[0]*np.identity(len(self.u))
+        newmat = self.L_op.matrix - a[0]*np.identity(len(self.u))
         sol = np.linalg.inv(newmat) @ sums
         sol = np.array(sol)
         sol.resize(len(self.u))
