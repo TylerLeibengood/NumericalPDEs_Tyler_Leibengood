@@ -96,6 +96,6 @@ class ReactionDiffusion:
             cT_mat = cT * I
 
         self.M = I
-        self.L = -(D*d2+cT_mat)
+        self.L = -(D*d2.matrix+cT_mat)
         self.F = lambda X: -1*(X.data**2)
 
