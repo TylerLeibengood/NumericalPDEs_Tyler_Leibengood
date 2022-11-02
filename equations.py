@@ -46,7 +46,32 @@ class Wave:
 class SoundWave:
 
     def __init__(self, u, p, d, rho0, p0):
-        pass
+        
+        self.X = StateVector([u, p])
+        N = len(u)
+        I = sparse.eye(N, N)
+        if type(rho0)==int:
+            rho = rho0 * I
+        else:
+            rho = sparse.dia_matrix((rho0, 0), shape=(N, N))
+        Z = sparse.csr_matrix((N, N))
+
+        M00 = rho
+        M01 = Z
+        M10 = Z
+        M11 = I
+        self.M = sparse.bmat([[M00, M01],
+                              [M10, M11]])
+
+        L00 = Z
+        L01 = d.matrix
+        L10 = p0*d.matrix
+        L11 = Z
+        self.L = sparse.bmat([[L00, L01],
+                              [L10, L11]])
+
+        
+        self.F = lambda X: 0*X.data
 
 
 class ReactionDiffusion:
