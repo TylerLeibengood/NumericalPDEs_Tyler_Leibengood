@@ -71,7 +71,7 @@ class SoundWave:
         else:
             L10 = Z
             for i in range (0,N):
-                for j in range(j=0,N):
+                for j in range(0,N):
                     L10[i,j]=p0[i]*d.matrix[i,j]     
         L11 = Z
         self.L = sparse.bmat([[L00, L01],
