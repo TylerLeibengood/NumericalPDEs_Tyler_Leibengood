@@ -84,5 +84,18 @@ class SoundWave:
 class ReactionDiffusion:
     
     def __init__(self, c, d2, c_target, D):
-        pass
+        
+        cT=c_target
+        self.X = StateVector([c])
+        N = len(c)
+        I = sparse.eye(N, N)
+        
+        if type(cT)==np.ndarray:
+            cT_mat = sparse.dia_matrix((cT, 0), shape=(N, N))
+        else:
+            cT_mat = cT * I
+
+        self.M = I
+        self.L = -(D*d2+cT_mat)
+        self.F = lambda X: -1*(X.data**2)
 
