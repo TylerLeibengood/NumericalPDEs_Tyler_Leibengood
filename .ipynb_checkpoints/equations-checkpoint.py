@@ -50,10 +50,10 @@ class SoundWave:
         self.X = StateVector([u, p])
         N = len(u)
         I = sparse.eye(N, N)
-        if type(rho0)==int:
-            rho = rho0 * I
-        else:
+        if type(rho0)==np.ndarray:
             rho = sparse.dia_matrix((rho0, 0), shape=(N, N))
+        else:
+            rho = rho0 * I
         Z = sparse.csr_matrix((N, N))
 
         M00 = rho
@@ -65,7 +65,14 @@ class SoundWave:
 
         L00 = Z
         L01 = d.matrix
-        L10 = p0*d.matrix
+        #L10
+        if type(p0) == int:
+            L10 = p0 * d.matrix
+        else:
+            L10 = Z
+            for i in range (0,N):
+                for j in range(j=0,N):
+                    L10[i,j]=p0[i]*d.matrix[i,j]     
         L11 = Z
         self.L = sparse.bmat([[L00, L01],
                               [L10, L11]])
