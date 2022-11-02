@@ -304,8 +304,64 @@ class BDFExtrapolate(IMEXTimestepper):
     def __init__(self, eq_set, steps):
         super().__init__(eq_set)
         self.steps = steps
+        self.Xs = deque()
+        self.Fs = deque()
+        self.X_past = [None]*(steps+1)
+        self.F_past = [None]*(steps+1)
+        self.a = 0
+        self.matrix = 0
+        for i in range(self.steps+1):
+            self.Fs.append(np.copy(self.F))
+            self.Xs.append(0)
         pass
 
     def _step(self, dt):
-        pass
-
+        
+        self.Xs.rotate()
+        self.Xs[1] = np.copy(self.X.data)
+        self.Fs.rotate()
+        
+        Fx = self.F(self.X)                  #What does this do?
+        self.Fs[1] = np.copy(Fx.data)
+        
+        #Determine steps
+        if (self.iter + 1) <= self.steps:
+            s = self.iter + 1
+            #calculate a coefficients
+            a = np.zeros(s+1)               # a is vector of ais
+            k = np.zeros(s+1)               # k is vector on right
+            k[1] = 1
+        
+            mat = np.zeros(shape=(s+1,s+1)) #mat is the matrix to be inverted to provide a
+            for i in range(0,s+1):
+                for j in range(0,s+1):
+                    mat[i,j] = 1/factorial(i)*((-1*(j)*dt)**(i))
+            a = np.linalg.inv(mat) @ k      # a = mat^(-1) * k
+            self.a = a
+            self.matrix = mat
+        else:
+            s = self.steps
+            a = self.a
+            mat = self.matrix
+         
+        
+        #calculate b coefficients         
+        b = np.zeros(s)
+        dt2s = np.zeros(s)
+        dt2s[0] = 1
+        
+        for j in range(1,s+1):
+            b[j-1] = (-1)**(j-1)*factorial(s)/(factorial(s-j)*factorial(j))
+        
+        #compute sum of fs and sum of ais starting at 1
+        a_tilde = np.zeros(self.X.N)
+        f_tilde = np.zeros(self.X.N)
+        for i in range(1,s+1):
+            a_tilde += a[i]*self.Xs[i]
+            f_tilde += b[i-1]*self.Fs[i]
+        
+        #finish solve
+        LHS = self.M*a[0]+self.L
+        RHS =f_tilde - self.M @ a_tilde
+        sol = spla.spsolve(LHS,RHS)
+        return sol
