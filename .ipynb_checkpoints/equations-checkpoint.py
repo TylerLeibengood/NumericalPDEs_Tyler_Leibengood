@@ -39,8 +39,8 @@ class ReactionDiffusion2D:
                 K1 = c_old + (dt/8)*F1
                 F2 = K1*(1-K1)
                 while i < Nx:
-                    LHS = (Mx - (dt/4)*self.D*dx2)
-                    RHS = (Mx + (dt/4)*self.D*dx2)@c_old[i] + (dt/4)*F2[i]
+                    LHS = (Mx - (dt/8)*self.D*dx2)
+                    RHS = (Mx + (dt/8)*self.D*dx2)@c_old[i] + (dt/4)*F2[i]
                     c[i] = spla.spsolve(LHS,RHS)
                     i+=1
             else:
@@ -50,8 +50,8 @@ class ReactionDiffusion2D:
                 K1 = c_old + (dt/4)*F1
                 F2 = K1*(1-K1)
                 while i < Ny:
-                    LHS = (My - (dt/2)*self.D*dy2)
-                    RHS = (My + (dt/2)*self.D*dy2)@c_old[:,i] + (dt/2)*F2[:,i]
+                    LHS = (My - (dt/4)*self.D*dy2)
+                    RHS = (My + (dt/4)*self.D*dy2)@c_old[:,i] + (dt/2)*F2[:,i]
                     c[:,i] = spla.spsolve(LHS,RHS)
                     i+=1
                     
