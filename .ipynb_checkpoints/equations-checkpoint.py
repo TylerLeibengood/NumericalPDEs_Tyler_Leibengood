@@ -20,7 +20,7 @@ class ReactionDiffusion2D:
         #print(c[:,0])
         dx2 = self.dx2.matrix
         dy2 = self.dy2.matrix
-        plot_2D(c)
+        #plot_2D(c)
         #plot_2D(dx2.A)
         #plot_2D(dy2.A)
         Nx = len(c[0])
@@ -54,7 +54,7 @@ class ReactionDiffusion2D:
                     c[:,i] = spla.spsolve(LHS,RHS)
                     i+=1
                     
-            plot_2D(c_old)
+            #plot_2D(c_old)
             #print(np.max(c_old))
             spaceSteps += 1
         
