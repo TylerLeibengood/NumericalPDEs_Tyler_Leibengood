@@ -2,6 +2,76 @@ from timesteppers import StateVector
 from scipy import sparse
 import numpy as np
 
+
+class ReactionDiffusion2D:
+    
+    def __init__(self, c, D, dx2, dy2):
+        self.X=c
+        self.t = 0
+        self.iter = 0
+        self.dt = None
+        self.dx2 = dx2
+        self.dy2 = dy2
+        self.D = D
+    
+    def step(self, dt):
+        self.dt = dt
+        c = self.X
+        #print(c[:,0])
+        dx2 = self.dx2.matrix
+        dy2 = self.dy2.matrix
+        plot_2D(c)
+        #plot_2D(dx2.A)
+        #plot_2D(dy2.A)
+        Nx = len(c[0])
+        Ny = len(c[:,0])
+        
+        Mx = sparse.eye(Nx, Nx)
+        My = sparse.eye(Ny, Ny)
+        
+        spaceSteps = 1
+        while spaceSteps <= 3:
+            if spaceSteps % 2 == 1:
+                i=0
+                c_old = c
+                F1 = c_old*(1-c_old)
+                K1 = c_old + (dt/4)*F1
+                F2 = K1*(1-K1)
+                while i < Nx:
+                    LHS = (Mx - (dt/4)*self.D*dx2)
+                    RHS = (Mx + (dt/4)*self.D*dx2)@c_old[i] + (dt/2)*F2[i]
+                    c[i] = spla.spsolve(LHS,RHS)
+                    i+=1
+            else:
+                i=0
+                c_old = c
+                F1 = c_old*(1-c_old)
+                K1 = c_old + (dt/2)*F1
+                F2 = K1*(1-K1)
+                while i < Ny:
+                    LHS = (My - (dt/2)*self.D*dy2)
+                    RHS = (My + (dt/2)*self.D*dy2)@c_old[:,i] + dt*F2[:,i]
+                    c[:,i] = spla.spsolve(LHS,RHS)
+                    i+=1
+                    
+            plot_2D(c_old)
+            #print(np.max(c_old))
+            spaceSteps += 1
+        
+        self.t += dt
+        self.iter += 1
+        pass
+    
+    
+class ViscousBurgers2D:
+    
+    def __init__(self, u, v, nu, spatial_order, domain):
+        pass
+    
+    def step(self, dt):
+        pass
+
+    
 class ViscousBurgers:
     
     def __init__(self, u, nu, d, d2):
