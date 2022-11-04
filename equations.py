@@ -1,5 +1,6 @@
 from timesteppers import StateVector
 from scipy import sparse
+import scipy.sparse.linalg as spla
 import numpy as np
 
 
