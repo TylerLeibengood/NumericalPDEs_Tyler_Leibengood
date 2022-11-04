@@ -17,7 +17,7 @@ class ReactionDiffusion2D:
     
     def step(self, dt):
         self.dt = dt/2
-        sdt = dt/2
+        sdt = dt/4
         c = self.X
         #print(c[:,0])
         dx2 = self.dx2.matrix
