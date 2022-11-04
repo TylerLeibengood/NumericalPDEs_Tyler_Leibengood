@@ -48,7 +48,7 @@ class ReactionDiffusion2D:
                 i=0
                 c_old = c
                 F1 = c_old*(1-c_old)
-                K1 = c_old + (dt/4)*F1
+                K1 = c_old + (sdt/4)*F1
                 F2 = K1*(1-K1)
                 while i < Ny:
                     LHS = (My - (sdt/2)*self.D*dy2)
