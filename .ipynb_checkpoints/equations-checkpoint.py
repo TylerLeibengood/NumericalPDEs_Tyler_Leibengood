@@ -40,7 +40,7 @@ class ReactionDiffusion2D:
                 F2 = K1*(1-K1)
                 while i < Nx:
                     LHS = (Mx - (dt/4)*self.D*dx2)
-                    RHS = (Mx + (dt/4)*self.D*dx2)@c_old[i] + (dt/2)*F2[i]
+                    RHS = (Mx + (dt/4)*self.D*dx2)@c_old[i] + (dt/4)*F2[i]
                     c[i] = spla.spsolve(LHS,RHS)
                     i+=1
             else:
@@ -51,7 +51,7 @@ class ReactionDiffusion2D:
                 F2 = K1*(1-K1)
                 while i < Ny:
                     LHS = (My - (dt/2)*self.D*dy2)
-                    RHS = (My + (dt/2)*self.D*dy2)@c_old[:,i] + dt*F2[:,i]
+                    RHS = (My + (dt/2)*self.D*dy2)@c_old[:,i] + (dt/2)*F2[:,i]
                     c[:,i] = spla.spsolve(LHS,RHS)
                     i+=1
                     
@@ -67,10 +67,58 @@ class ReactionDiffusion2D:
 class ViscousBurgers2D:
     
     def __init__(self, u, v, nu, spatial_order, domain):
-        pass
+        self.X = StateVector([u, v])
+        self.t = 0
+        self.iter = 0
+        self.dt = None
     
     def step(self, dt):
-        pass
+        self.dt = dt
+        M00 = I
+        M01 = Z
+        M10 = Z
+        M11 = I
+        self.M = sparse.bmat([[M00, M01],
+                              [M10, M11]])
+
+        #create dx2 and dy2 matrices
+        dx2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[0], 0)
+        dy2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[1], 1)
+        
+        Lx00 = -nu * dx2.matrix
+        Ly00 = -nu * dy2.matrix
+        L01 = Z
+        L10 = Z
+        
+        Lx = sparse.bmat([[Lx00, L01],
+                          [L10, Lx00]])
+        Ly = sparse.bmat([[Ly00, L01],
+                          [L10, Ly00]])
+        
+        
+        #create dx and dy matrices
+        dx = finite.DifferenceUniformGrid(1, spatial_order, domain.values[0], 0)
+        dy = finite.DifferenceUniformGrid(1, spatial_order, domain.values[1], 1)
+        
+        f00 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[0])
+        f01 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[0])
+        f10 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[1])
+        f11 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[1])
+        self.F = sparse.bmat([[f00, f01],
+                              [f10, f11]])
+        
+        spatialStep = 1
+        while spatialStep <= 3:
+            if spatialStep % 2 == 1:
+                self.L = Lx
+                tinydt = dt/2
+            else:
+                self.L = Ly
+                tinydt = dt
+                
+            
+                
+            
 
     
 class ViscousBurgers:
