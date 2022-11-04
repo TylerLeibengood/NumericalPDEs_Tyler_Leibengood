@@ -16,7 +16,8 @@ class ReactionDiffusion2D:
         self.D = D
     
     def step(self, dt):
-        self.dt = dt
+        self.dt = dt/2
+        sdt = dt/2
         c = self.X
         #print(c[:,0])
         dx2 = self.dx2.matrix
@@ -36,11 +37,11 @@ class ReactionDiffusion2D:
                 i=0
                 c_old = c
                 F1 = c_old*(1-c_old)
-                K1 = c_old + (dt/8)*F1
+                K1 = c_old + (sdt/8)*F1
                 F2 = K1*(1-K1)
                 while i < Nx:
-                    LHS = (Mx - (dt/8)*self.D*dx2)
-                    RHS = (Mx + (dt/8)*self.D*dx2)@c_old[i] + (dt/4)*F2[i]
+                    LHS = (Mx - (sdt/4)*self.D*dx2)
+                    RHS = (Mx + (sdt/4)*self.D*dx2)@c_old[i] + (sdt/4)*F2[i]
                     c[i] = spla.spsolve(LHS,RHS)
                     i+=1
             else:
@@ -50,8 +51,8 @@ class ReactionDiffusion2D:
                 K1 = c_old + (dt/4)*F1
                 F2 = K1*(1-K1)
                 while i < Ny:
-                    LHS = (My - (dt/4)*self.D*dy2)
-                    RHS = (My + (dt/4)*self.D*dy2)@c_old[:,i] + (dt/2)*F2[:,i]
+                    LHS = (My - (sdt/2)*self.D*dy2)
+                    RHS = (My + (sdt/2)*self.D*dy2)@c_old[:,i] + (sdt/2)*F2[:,i]
                     c[:,i] = spla.spsolve(LHS,RHS)
                     i+=1
                     
@@ -59,7 +60,7 @@ class ReactionDiffusion2D:
             #print(np.max(c_old))
             spaceSteps += 1
         
-        self.t += dt
+        self.t += sdt
         self.iter += 1
         pass
     
