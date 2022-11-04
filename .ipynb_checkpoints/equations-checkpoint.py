@@ -36,7 +36,7 @@ class ReactionDiffusion2D:
                 i=0
                 c_old = c
                 F1 = c_old*(1-c_old)
-                K1 = c_old + (dt/4)*F1
+                K1 = c_old + (dt/8)*F1
                 F2 = K1*(1-K1)
                 while i < Nx:
                     LHS = (Mx - (dt/4)*self.D*dx2)
@@ -47,7 +47,7 @@ class ReactionDiffusion2D:
                 i=0
                 c_old = c
                 F1 = c_old*(1-c_old)
-                K1 = c_old + (dt/2)*F1
+                K1 = c_old + (dt/4)*F1
                 F2 = K1*(1-K1)
                 while i < Ny:
                     LHS = (My - (dt/2)*self.D*dy2)
