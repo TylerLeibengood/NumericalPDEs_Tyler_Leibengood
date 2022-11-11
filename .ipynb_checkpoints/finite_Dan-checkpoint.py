@@ -121,32 +121,21 @@ class DifferenceUniformGrid(Difference):
         i = np.arange(self.dof)[:, None]
         j = self.j[None, :]
         S = 1/factorial(i)*(j*self.dx)**i
-        
+
         b = np.zeros( self.dof )
         b[self.derivative_order] = 1.
 
         self.stencil = np.linalg.solve(S, b)
-        
-        
-        
-        
 
     def _build_matrix(self, grid):
         shape = [grid.N] * 2
         matrix = sparse.diags(self.stencil, self.j, shape=shape)
         matrix = matrix.tocsr()
         jmin = -np.min(self.j)
-        b = np.zeros( self.dof )
-        b[self.derivative_order] = 1.
-        j = self.j[None, :]
-        k = np.arange(self.dof)[:, None]
         if jmin > 0:
             for i in range(jmin):
                 if isinstance(grid, UniformNonPeriodicGrid):
-                    nonperiodjleft = j - np.min(self.j) - i
-                    nonperiodSleft = 1/factorial(k)*(nonperiodjleft*self.dx)**k
-                    self.nonperiodstencil_left = np.linalg.solve(nonperiodSleft, b)
-                    matrix[i, 0:len(self.j)] = self.nonperiodstencil_left[:]
+                    pass
                 else:
                     matrix[i,-jmin+i:] = self.stencil[:jmin-i]
 
@@ -154,15 +143,9 @@ class DifferenceUniformGrid(Difference):
         if jmax > 0:
             for i in range(jmax):
                 if isinstance(grid, UniformNonPeriodicGrid):
-                    nonperiodjright = j - (i+1)
-                    print(nonperiodjright)
-                    nonperiodSright = 1/factorial(k)*(nonperiodjright*self.dx)**k
-                    self.nonperiodstencil_right = np.linalg.solve(nonperiodSright, b)
-                    print(self.nonperiodstencil_right)
-                    matrix[-jmax+i, grid.N - len(self.j):] = self.nonperiodstencil_right[:]
+                    pass
                 else:
                     matrix[-jmax+i,:i+1] = self.stencil[-i-1:]
-        
         self.matrix = matrix
 
 

@@ -161,22 +161,33 @@ class ViscousBurgers2D:
         dx = finite.DifferenceUniformGrid(1, spatial_order, domain.values[0], 0)
         dy = finite.DifferenceUniformGrid(1, spatial_order, domain.values[1], 1)
         
-        F00 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[0])
-        F01 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[0])
-        F10 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[1])
-        F11 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[1])
-        self.F = sparse.bmat([[F00, F01],
-                              [F10, F11]])
+        f00 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[0])
+        f01 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[0])
+        f10 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[1])
+        f11 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[1])
+        self.F = sparse.bmat([[f00, f01],
+                              [f10, f11]])
         
         spatialStep = 1
         while spatialStep <= 3:
             if spatialStep % 2 == 1:
                 self.L = Lx
-                sdt = dt / 2
-            elif spatialStep % 2 == 0:
+                tinydt = dt/2
+            else:
                 self.L = Ly
-                sdt = dt
-
+                tinydt = dt
+            
+        F1 = self.F(self.X.data) @ self.X.data
+        K1 = self.X + (tinydt/4)*F1
+        F2 = self.F(K1)
+        
+        LHS = self.M + (tinydt/2)*self.L
+        RHS = (self.M - (tinydt/2)*self.L) @ self.X.data + (tinydt/2)*F2
+        
+        #solve??
+            
+            
+        self.iter += 1   
 
 
 class SoundWave:
@@ -300,19 +311,19 @@ class Wave2DBC:
         self.iter = 0
         self.t = 0
         
-        xg, yg = domain.grids
-        self.dx = DifferenceUniformGrid(1, spatial_order, xg, axis=0)
-        self.dy = DifferenceUniformGrid(1, spatial_order, yg, axis=1)
+        xgrid, ygrid = domain.grids
+        self.dx = DifferenceUniformGrid(1, spatial_order, xgrid, axis=0)
+        self.dy = DifferenceUniformGrid(1, spatial_order, ygrid, axis=1)
 
 
-        def F(X):
+        def F(X, dx, dy):
             u = X.variables[0]
             v = X.variables[1]
-            p = X.variables[2]
-            dtu = -1 * (self.dx @ p)
-            dtv = -1 * (self.dy @ p)
-            dtp = -1 * (self.dx @ u) - (self.dy @ v)
-            newvec = StateVector([dtu, dtv, dtp])
+            p = x.variables[2]
+            dtu = -dx @ p
+            dtv = -dy @ p
+            dtp = -dx @ u - dy @ u
+            newvec = StateVector(dtu, dtv, dtp)
             return newvec.data
         
         self.F = F

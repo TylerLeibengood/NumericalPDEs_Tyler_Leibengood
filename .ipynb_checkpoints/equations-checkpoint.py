@@ -1,127 +1,9 @@
-from timesteppers import StateVector
+from timesteppers import CNRK22, CrankNicolson, StateVector
 from scipy import sparse
 import scipy.sparse.linalg as spla
 import numpy as np
+import finite
 
-
-class ReactionDiffusion2D:
-    
-    def __init__(self, c, D, dx2, dy2):
-        self.X=c
-        self.t = 0
-        self.iter = 0
-        self.dt = None
-        self.dx2 = dx2
-        self.dy2 = dy2
-        self.D = D
-    
-    def step(self, dt):
-        self.dt = dt/2
-        sdt = dt/4
-        c = self.X
-        #print(c[:,0])
-        dx2 = self.dx2.matrix
-        dy2 = self.dy2.matrix
-        #plot_2D(c)
-        #plot_2D(dx2.A)
-        #plot_2D(dy2.A)
-        Nx = len(c[0])
-        Ny = len(c[:,0])
-        
-        Mx = sparse.eye(Nx, Nx)
-        My = sparse.eye(Ny, Ny)
-        
-        spaceSteps = 1
-        while spaceSteps <= 3:
-            if spaceSteps % 2 == 1:
-                i=0
-                c_old = c
-                F1 = c_old*(1-c_old)
-                K1 = c_old + (sdt/8)*F1
-                F2 = K1*(1-K1)
-                while i < Nx:
-                    LHS = (Mx - (sdt/4)*self.D*dx2)
-                    RHS = (Mx + (sdt/4)*self.D*dx2)@c_old[i] + (sdt/4)*F2[i]
-                    c[i] = spla.spsolve(LHS,RHS)
-                    i+=1
-            else:
-                i=0
-                c_old = c
-                F1 = c_old*(1-c_old)
-                K1 = c_old + (sdt/4)*F1
-                F2 = K1*(1-K1)
-                while i < Ny:
-                    LHS = (My - (sdt/2)*self.D*dy2)
-                    RHS = (My + (sdt/2)*self.D*dy2)@c_old[:,i] + (sdt/2)*F2[:,i]
-                    c[:,i] = spla.spsolve(LHS,RHS)
-                    i+=1
-                    
-            #plot_2D(c_old)
-            #print(np.max(c_old))
-            spaceSteps += 1
-        
-        self.t += sdt
-        self.iter += 1
-        pass
-    
-    
-class ViscousBurgers2D:
-    
-    def __init__(self, u, v, nu, spatial_order, domain):
-        self.X = StateVector([u, v])
-        self.t = 0
-        self.iter = 0
-        self.dt = None
-    
-    def step(self, dt):
-        self.dt = dt
-        M00 = I
-        M01 = Z
-        M10 = Z
-        M11 = I
-        self.M = sparse.bmat([[M00, M01],
-                              [M10, M11]])
-
-        #create dx2 and dy2 matrices
-        dx2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[0], 0)
-        dy2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[1], 1)
-        
-        Lx00 = -nu * dx2.matrix
-        Ly00 = -nu * dy2.matrix
-        L01 = Z
-        L10 = Z
-        
-        Lx = sparse.bmat([[Lx00, L01],
-                          [L10, Lx00]])
-        Ly = sparse.bmat([[Ly00, L01],
-                          [L10, Ly00]])
-        
-        
-        #create dx and dy matrices
-        dx = finite.DifferenceUniformGrid(1, spatial_order, domain.values[0], 0)
-        dy = finite.DifferenceUniformGrid(1, spatial_order, domain.values[1], 1)
-        
-        f00 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[0])
-        f01 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[0])
-        f10 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[1])
-        f11 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[1])
-        self.F = sparse.bmat([[f00, f01],
-                              [f10, f11]])
-        
-        spatialStep = 1
-        while spatialStep <= 3:
-            if spatialStep % 2 == 1:
-                self.L = Lx
-                tinydt = dt/2
-            else:
-                self.L = Ly
-                tinydt = dt
-                
-            
-                
-            
-
-    
 class ViscousBurgers:
     
     def __init__(self, u, nu, d, d2):
@@ -162,60 +44,280 @@ class Wave:
         
         self.F = lambda X: 0*X.data
 
-
-class SoundWave:
-
-    def __init__(self, u, p, d, rho0, p0):
+class ReactionDiffusion:
+    
+    def __init__(self, c, d2, c_target, D):
+        self.X = StateVector([c])
+        N = len(c)
+        I = sparse.eye(N,N)
+        Z = sparse.csr_matrix((N,N))
         
-        self.X = StateVector([u, p])
-        N = len(u)
-        I = sparse.eye(N, N)
-        if type(rho0)==np.ndarray:
-            rho = sparse.dia_matrix((rho0, 0), shape=(N, N))
+        if type(c_target) == np.ndarray:
+            ctmat = sparse.dia_matrix((c_target, 0), shape=(N,N))
         else:
-            rho = rho0 * I
-        Z = sparse.csr_matrix((N, N))
-
-        M00 = rho
+            ctmat = c_target * I
+            
+        self.M = I
+        self.L = -1*((D*d2.matrix)+ctmat)
+        self.F = lambda X: -1 * (X.data**2)
+        
+class ReactionDiffusion1D:
+    
+    def __init__(self, c, d2, D, axis):
+        self.X = StateVector([c], axis=axis)
+        N = np.shape(c)[axis]
+        I = sparse.eye(N,N)
+        self.M = I
+        self.L = -D*d2.matrix
+        self.F = lambda X: X.data*(1-X.data)
+        
+class ReactionDiffusion2D:
+    
+    def __init__(self, c, D, dx2, dy2):
+        self.X = c
+        self.t = 0
+        self.iter = 0
+        self.dt = None
+        self.dx2 = dx2
+        self.dy2 = dy2
+        self.D = D
+    
+    def step(self, dt):
+        self.dt = dt/2
+        sdt = dt/4
+        c = self.X
+        dx2 = self.dx2.matrix
+        dy2 = self.dy2.matrix
+        Nx = len(c[0])
+        Ny = len(c[:,0])
+        
+        Mx = sparse.eye(Nx, Nx)
+        My = sparse.eye(Ny, Ny)
+        
+        steps = 1
+        while steps <= 3:
+            if steps % 2 == 1:
+                i=0
+                c_old = c
+                F1 = c_old*(1-c_old)
+                K1 = c_old + (sdt/8)*F1
+                F2 = K1*(1-K1)
+                while i < Nx:
+                    LHS = (Mx - (sdt/4) * self.D * dx2)
+                    RHS = (Mx + (sdt/4) * self.D * dx2) @ c_old[i] + (sdt/4) * F2[i]
+                    c[i] = spla.spsolve(LHS,RHS)
+                    i += 1
+            elif steps % 2 == 0:
+                i=0
+                c_old = c
+                F1 = c_old*(1-c_old)
+                K1 = c_old + (sdt/4)*F1
+                F2 = K1*(1-K1)
+                while i < Ny:
+                    LHS = (My - (sdt/2) * self.D * dy2)
+                    RHS = (My + (sdt/2) * self.D * dy2) @ c_old[:,i] + (sdt/2) * F2[:,i]
+                    c[:,i] = spla.spsolve(LHS,RHS)
+                    i += 1
+                    
+            steps += 1
+        
+        self.t += sdt
+        self.iter += 1
+    
+    
+class ViscousBurgers2D:
+    
+    def __init__(self, u, v, nu, spatial_order, domain):
+        self.X = StateVector([u, v])
+        self.t = 0
+        self.iter = 0
+        self.dt = None
+    
+    def step(self, dt):
+        self.dt = dt
+        M00 = I
         M01 = Z
         M10 = Z
         M11 = I
         self.M = sparse.bmat([[M00, M01],
                               [M10, M11]])
 
+        #create dx2 and dy2 matrices
+        dx2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[0], 0)
+        dy2 = finite.DifferenceUniformGrid(2, spatial_order, domain.values[1], 1)
+        
+        Lx00 = -nu * dx2.matrix
+        Ly00 = -nu * dy2.matrix
+        L01 = Z
+        L10 = Z
+        
+        Lx = sparse.bmat([[Lx00, L01],
+                          [L10, Lx00]])
+        Ly = sparse.bmat([[Ly00, L01],
+                          [L10, Ly00]])
+        
+        
+        #create dx and dy matrices
+        dx = finite.DifferenceUniformGrid(1, spatial_order, domain.values[0], 0)
+        dy = finite.DifferenceUniformGrid(1, spatial_order, domain.values[1], 1)
+        
+        F00 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[0])
+        F01 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[0])
+        F10 = lambda X: -X.variables[0]*(dx.matrix @ X.variables[1])
+        F11 = lambda X: -X.variables[1]*(dy.matrix @ X.variables[1])
+        self.F = sparse.bmat([[F00, F01],
+                              [F10, F11]])
+        
+        spatialStep = 1
+        while spatialStep <= 3:
+            if spatialStep % 2 == 1:
+                self.L = Lx
+                sdt = dt / 2
+            elif spatialStep % 2 == 0:
+                self.L = Ly
+                sdt = dt
+
+
+
+class SoundWave:
+
+    def __init__(self, u, p, d, rho0, gammap0):
+        self.X = StateVector([u, p])
+        N = len(u)
+        I = sparse.eye(N, N)
+        Z = sparse.csr_matrix((N, N))
+        
+        M01 = Z
+        M10 = Z
+        M11 = I
+        
         L00 = Z
         L01 = d.matrix
-        #L10
-        if type(p0) == int:
-            L10 = p0 * d.matrix
-        else:
-            L10 = Z
-            for i in range (0,N):
-                for j in range(0,N):
-                    L10[i,j]=p0[i]*d.matrix[i,j]     
         L11 = Z
-        self.L = sparse.bmat([[L00, L01],
-                              [L10, L11]])
-
         
-        self.F = lambda X: 0*X.data
-
-
-class ReactionDiffusion:
-    
-    def __init__(self, c, d2, c_target, D):
-        
-        cT=c_target
-        self.X = StateVector([c])
-        N = len(c)
-        I = sparse.eye(N, N)
-        
-        if type(cT)==np.ndarray:
-            cT_mat = sparse.dia_matrix((cT, 0), shape=(N, N))
+        if (type(rho0) == np.ndarray):
+            M00 = sparse.dia_matrix((rho0,0),shape=(N,N))
         else:
-            cT_mat = cT * I
+            M00 = rho0 * I
+            
+        if (type(gammap0) == np.ndarray):
+            L10 = d.matrix
+            for i in range(0,N):
+                for j in range(0,N):
+                    L10[i,j] = L10[i,j] * gammap0[i]
+        else:
+            L10 = gammap0 * d.matrix     
 
-        self.M = I
-        self.L = -(D*d2.matrix+cT_mat)
-        self.F = lambda X: -1*(X.data**2)
 
+        self.M = sparse.bmat([[M00, M01],
+                                  [M10, M11]])
+        self.L = sparse.bmat([[L00, L01],
+                                  [L10, L11]])
+        self.F = lambda X: 0*X.data
+        
+class DiffusionBC1D:
+    
+    def __init__(self, c, d2, D, d1, axis):
+    
+        self.X = StateVector([c], axis=axis)
+        N = np.shape(c)[axis]
+        
+        M = sparse.eye(N,N)
+        self.M = M
+        
+        if (axis == 0):
+            M = M.tocsr()
+            M[0,:] = 0
+            M[-1,:] = 0
+            M.eliminate_zeros()
+            self.M = M
+        
+        L = -D*d2.matrix
+        self.L = L
+        if (axis == 0):
+            L = L.tocsr()
+            L[0,:] = 0
+            L[-1,:] = 0
+            L[0,0] = 1 # value on left boundary is zero
+            L[-1:] = d1.matrix[-1,:] # first derivative on right boundary is zero
+            L.eliminate_zeros()
+            self.L = L
+
+class DiffusionBC:
+
+    def __init__(self, c, D, spatial_order, domain):
+        self.c = c
+        self.XX = StateVector([c])
+        self.t = 0
+        self.iter = 0
+        self.D = D
+        
+        #calculate derivatives
+        xgrid, ygrid = domain.grids
+        dx2 = finite.DifferenceUniformGrid(2, spatial_order, xgrid)
+        dy2 = finite.DifferenceUniformGrid(2, spatial_order, ygrid)
+        self.dx2 = dx2
+        self.dy2 = dy2
+        
+        dx = finite.DifferenceUniformGrid(1, spatial_order, xgrid)
+        dy = finite.DifferenceUniformGrid(1, spatial_order, ygrid)
+        self.dx = dx
+        self.dy = dy
+        
+        
+    def step(self, dt):
+        #take half a time step in x
+        self.XX.gather()
+        eqset1 = DiffusionBC1D(self.XX.data, self.dx2, self.D, self.dx, 0)
+        ts1 = CrankNicolson(eqset1,0)
+        self.XX.data = ts1._step(dt / 2)
+        self.XX.scatter()
+        
+        #take a time step in y
+        self.XX.gather()
+        eqset2 = DiffusionBC1D(self.XX.data, self.dy2, self.D, self.dy, 1)
+        ts2 = CrankNicolson(eqset2,1)
+        self.XX.data = ts2._step(dt)
+        self.XX.scatter()
+        
+        #take half a time step in x
+        self.XX.gather()
+        eqset3 = DiffusionBC1D(self.XX.data, self.dx2, self.D, self.dx, 0)
+        ts3 = CrankNicolson(eqset3,0)
+        self.XX.data = ts3._step(dt / 2)
+        self.XX.scatter()
+        
+        #increment time and iteration
+        self.t += dt
+        self.iter += 1
+        self.c = self.XX.data
+        
+        
+class Wave2DBC:
+
+    def __init__(self, u, v, p, spatial_order, domain):
+        self.X = StateVector([u, v, p])
+        self.iter = 0
+        self.t = 0
+        
+        xg, yg = domain.grids
+        self.dx = DifferenceUniformGrid(1, spatial_order, xg, axis=0)
+        self.dy = DifferenceUniformGrid(1, spatial_order, yg, axis=1)
+
+
+        def F(X):
+            u = X.variables[0]
+            v = X.variables[1]
+            p = X.variables[2]
+            dtu = -1 * (self.dx @ p)
+            dtv = -1 * (self.dy @ p)
+            dtp = -1 * (self.dx @ u) - (self.dy @ v)
+            newvec = StateVector([dtu, dtv, dtp])
+            return newvec.data
+        
+        self.F = F
+        
+        def BC(X):
+            u = X.variables[0]
+            u[0] = 0
+            u[-1] = 0

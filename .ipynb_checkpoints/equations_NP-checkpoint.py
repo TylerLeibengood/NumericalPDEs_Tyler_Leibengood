@@ -300,9 +300,9 @@ class Wave2DBC:
         self.iter = 0
         self.t = 0
         
-        xg, yg = domain.grids
-        self.dx = DifferenceUniformGrid(1, spatial_order, xg, axis=0)
-        self.dy = DifferenceUniformGrid(1, spatial_order, yg, axis=1)
+        xgrid, ygrid = domain.grids
+        self.dx = DifferenceUniformGrid(1, spatial_order, xgrid, axis=0)
+        self.dy = DifferenceUniformGrid(1, spatial_order, ygrid, axis=1)
 
 
         def F(X):

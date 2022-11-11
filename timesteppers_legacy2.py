@@ -52,16 +52,6 @@ class ExplicitTimestepper(Timestepper):
         super().__init__()
         self.X = eq_set.X
         self.F = eq_set.F
-        if hasattr(eq_set, 'BC'):
-            self.BC = eq_set.BC
-        else:
-            self.BC = None
-
-    def step(self, dt):
-        super().step(dt)
-        if self.BC:
-            self.BC(self.X)
-            self.X.scatter()
 
 
 class ForwardEuler(ExplicitTimestepper):
@@ -138,8 +128,6 @@ class Multistage(ExplicitTimestepper):
             # this loop is slow -- should make K_list a 2D array
             for j in range(i):
                 X_list[i].data += self.a[i, j]*dt*K_list[j]
-            if self.BC:
-                self.BC(X_list[i])
 
         K_list[-1] = self.F(X_list[-1])
 
@@ -178,7 +166,6 @@ class AdamsBashforth(ExplicitTimestepper):
 
         for i, coeff in enumerate(coeffs):
             self.X.data += self.dt*coeff*self.f_list[i].data
-
         return self.X.data
 
     def _coeffs(self, num):
