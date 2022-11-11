@@ -1,4 +1,4 @@
-from timesteppers import CNRK22, CrankNicolson, StateVector
+from timesteppers import CrankNicolson, StateVector#, CNRK22
 from scipy import sparse
 import scipy.sparse.linalg as spla
 import numpy as np
