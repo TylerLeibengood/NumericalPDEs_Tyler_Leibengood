@@ -4,7 +4,7 @@ import finite
 import timesteppers
 import equations
 
-error_burgers = {(50,0.5):2.5e-3, (50,0.25):2e-3, (50,0.125):2e-3,(100,0.5):2e-4, (100,0.25):5e-5, (100,0.125):3e-5, (200,0.5):4e-5, (200,0.25):1e-5, (200,0.125):2e-6}
+error_burgers = {(50,0.5):2.5e-3, (50,0.25):2e-3, (50,0.125):2e-3,(100,0.5):5e-4, (100,0.25):1e-4, (100,0.125):3e-5, (200,0.5):1e-4, (200,0.25):3e-5, (200,0.125):7e-6}
 @pytest.mark.parametrize('resolution', [50, 100, 200])
 @pytest.mark.parametrize('alpha', [0.5, 0.25, 0.125])
 def test_viscous_burgers(resolution, alpha):
