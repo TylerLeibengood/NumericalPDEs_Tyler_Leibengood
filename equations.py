@@ -1,4 +1,4 @@
-from timesteppers import CrankNicolson, StateVector#, CNRK22
+from timesteppers import CNRK22, CrankNicolson, StateVector, CrankNicolsonFI
 from scipy import sparse
 import scipy.sparse.linalg as spla
 import numpy as np
@@ -300,9 +300,9 @@ class Wave2DBC:
         self.iter = 0
         self.t = 0
         
-        xg, yg = domain.grids
-        self.dx = DifferenceUniformGrid(1, spatial_order, xg, axis=0)
-        self.dy = DifferenceUniformGrid(1, spatial_order, yg, axis=1)
+        xgrid, ygrid = domain.grids
+        self.dx = DifferenceUniformGrid(1, spatial_order, xgrid, axis=0)
+        self.dy = DifferenceUniformGrid(1, spatial_order, ygrid, axis=1)
 
 
         def F(X):
@@ -321,3 +321,94 @@ class Wave2DBC:
             u = X.variables[0]
             u[0] = 0
             u[-1] = 0
+
+
+class ReactionDiffusionFI:
+    
+    def __init__(self, c, D, spatial_order, grid):
+        self.X = StateVector([c])
+        d2 = finite.DifferenceUniformGrid(2, spatial_order, grid)
+        self.N = len(c)
+        I = sparse.eye(self.N)
+        
+        self.M = I
+        self.L = -D*d2.matrix
+
+        def F(X):
+            return X.data*(1-X.data)
+        self.F = F
+        
+        def J(X):
+            c_matrix = sparse.diags(X.data)
+            return sparse.eye(self.N) - 2*c_matrix
+        
+        self.J = J
+        
+class BurgersFI:
+    
+    def __init__(self, X, nu, spatial_order, grid):
+        self.u = X
+        self.X = StateVector([X])
+        d2 = finite.DifferenceUniformGrid(2, spatial_order, grid)
+        d = finite.DifferenceUniformGrid(1, spatial_order, grid)
+        self.N = len(X)
+        I = sparse.eye(self.N)
+        
+        self.M = I
+        self.L = -nu*d2.matrix
+
+        F = lambda X: -X.data*(d @ X.data)
+        self.F = F
+        
+        def J(X):
+            u_matrix = sparse.diags(X.data)
+            I = sparse.eye(self.N)
+            
+            #first component: -dxu
+            comp1vals = -d.matrix @ X.data
+            comp1 = sparse.diags(comp1vals)
+            
+            #second component -u * d/du (dxu)
+            comp2 = u_matrix @ (-d.matrix)
+            
+            return comp1 + comp2
+            
+        self.J = J
+
+
+class ReactionTwoSpeciesDiffusion:
+    
+    def __init__(self, X, D, r, spatial_order, grid):
+        self.X = X
+        d2 = finite.DifferenceUniformGrid(2, spatial_order, grid)
+        self.N = len(X.variables[0])
+        N = self.N
+        M = sparse.eye(2*N, 2*N)
+        self.M = M
+        L01 = L10 = sparse.csr_matrix((N, N))
+        L00 = L11 = -D * d2.matrix
+        self.L = sparse.bmat([[L00, L01],
+                              [L10, L11]])
+        def f(X):
+            c1 = X.variables[0]
+            c2 = X.variables[1]
+            top = c1*(1-c1-c2)
+            bottom = r*c2*(c1-c2)
+            vec = StateVector([top, bottom])
+            return vec.data
+        
+        self.F = f
+        
+        def J(X):
+            c1 = X.variables[0]
+            c1_matrix = sparse.diags(c1)
+            c2 = X.variables[1]
+            c2_matrix = sparse.diags(c2)
+            I = sparse.eye(self.N)
+            J00 = I-2*c1_matrix-c2_matrix
+            J01 = -c1_matrix
+            J10 = r*c2_matrix
+            J11 = r*(c1_matrix-2*c2_matrix)
+            return sparse.bmat([[J00, J01],
+                                [J10, J11]])
+        self.J = J

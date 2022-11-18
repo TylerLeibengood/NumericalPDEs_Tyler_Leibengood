@@ -52,16 +52,6 @@ class ExplicitTimestepper(Timestepper):
         super().__init__()
         self.X = eq_set.X
         self.F = eq_set.F
-        if hasattr(eq_set, 'BC'):
-            self.BC = eq_set.BC
-        else:
-            self.BC = None
-
-    def step(self, dt):
-        super().step(dt)
-        if self.BC:
-            self.BC(self.X)
-            self.X.scatter()
 
 
 class ForwardEuler(ExplicitTimestepper):
@@ -138,8 +128,6 @@ class Multistage(ExplicitTimestepper):
             # this loop is slow -- should make K_list a 2D array
             for j in range(i):
                 X_list[i].data += self.a[i, j]*dt*K_list[j]
-            if self.BC:
-                self.BC(X_list[i])
 
         K_list[-1] = self.F(X_list[-1])
 
@@ -178,7 +166,6 @@ class AdamsBashforth(ExplicitTimestepper):
 
         for i, coeff in enumerate(coeffs):
             self.X.data += self.dt*coeff*self.f_list[i].data
-
         return self.X.data
 
     def _coeffs(self, num):
@@ -232,55 +219,6 @@ class CrankNicolson(ImplicitTimestepper):
         return self._LUsolve(apply_matrix(self.RHS, self.X.data, self.axis))
 
 
-class BackwardDifferentiationFormula(Timestepper):
-    def __init__(self, u, L_op, steps):
-        super().__init__(u, L_op)
-        self.L_op = L_op
-        self.steps = steps
-        self.past = [None]*(steps+1)
-        self.dts = np.zeros(steps+1)
-        
-    def _step(self, dt):
-        #Account for initial condition where not enough previous steps exist
-        if (self.iter + 1) < self.steps:
-            s = self.iter + 1
-        else:
-            s = self.steps
-        
-        #Fix U_olds and create array of delta ts for previous steps
-        for i in range(1, len(self.past)):
-            self.past[len(self.past)-i] = self.past[len(self.past)-i-1]
-            self.dts[len(self.dts)-i] = self.dts[len(self.dts)-i-1]
-        self.past[0] = np.zeros(len(self.u))
-        self.past[1] = self.u
-        self.dts[0] = 0
-        self.dts[1] = dt
-        
-            
-        a = np.zeros(s+1)
-        deets = np.zeros(s+1)
-        deets[1] = 1
-        
-        M = np.zeros(shape=(s+1,s+1))
-        for i in range(0,s+1):
-            temp_dt = 0
-            for j in range(0,s+1):
-                temp_dt += self.dts[j]
-                M[i,j] = (temp_dt**(i))
-
-        a = np.linalg.inv(M) @ deets
-        
-        sums = np.zeros(len(self.u))
-        for i in range(1,s+1):
-            sums += a[i]*self.past[i]
-        
-        newmat = - self.L_op.matrix - a[0]*np.identity(len(self.u))
-        sol = np.linalg.inv(newmat) @ sums
-        sol = np.array(sol)
-        sol.resize(len(self.u))
-        return sol
-
-
 class IMEXTimestepper:
 
     def __init__(self, eq_set):
@@ -302,6 +240,26 @@ class IMEXTimestepper:
         self.t += dt
         self.iter += 1
 
+class CNRK22(IMEXTimestepper):
+    def __init__(self, eq_set, axis):
+        super().__init__(eq_set)
+        self.axis = axis
+    
+    def _LUsolve(self, data):
+        if self.axis == 0:
+            return self.LU.solve(data)
+        elif self.axis == len(data.shape)-1:
+            return self.LU.solve(data.T).T
+        else:
+            raise ValueError("Can only do implicit timestepping on first or last axis")
+    
+    def _step(self, dt):
+        if dt != self.dt:
+            LHS = self.M + 0.5 * dt * self.L
+            self.LU = spla.splu(LHS.tocsc(), permc_spec='NATURAL')
+        RHS = dt * (self.F(self.X.data + 0.5 * dt * self.F(self.X.data)) 
+                     - 0.5 * self.L @ self.X.data)
+        return self._LUsolve(apply_matrix(self.RHS, self.X.data, self.axis))
 
 class Euler(IMEXTimestepper):
 
@@ -338,71 +296,234 @@ class CNAB(IMEXTimestepper):
             self.FX_old = self.FX
             return self.LU.solve(RHS)
 
+class BackwardDifferentiationFormula(Timestepper):
+
+    def __init__(self, u, L_op, steps):
+        super().__init__(u, L_op)
+        self.L_op = L_op
+        self.steps = steps
+        self.u_olds = [None] * (steps + 1) #array of u_olds
+        self.delta_ts = np.zeros(steps + 1)
+
+    def _step(self, dt):
+#         print('step: \n', self.u)
+#         print('step ', self.iter)
+#         print('u olds: \n', self.u_olds)
+#         print('dts: \n', self.delta_ts)
+        steps = self.steps
+        if (self.iter+1) <= steps:
+            steps = self.iter + 1
+#         print('steps: ', steps)
+        
+        #fix the u_olds
+        for i in range(1, len(self.u_olds)):
+            self.u_olds[len(self.u_olds)-i] = self.u_olds[len(self.u_olds)-i-1]
+            self.delta_ts[len(self.delta_ts)-i] = self.delta_ts[len(self.delta_ts)-i-1] + dt
+#         for i in range(1, len(self.u_olds)-1):
+#             self.delta_ts[len(self.delta_ts)-i] = self.delta_ts[len(self.delta_ts)-i-1] + dt
+        self.u_olds[0] = np.zeros(len(self.u))
+        self.u_olds[1] = self.u
+        self.delta_ts[0] = 0
+        self.delta_ts[1] = dt
+        
+#         print('step ', self.iter)
+#         print('u olds: \n', self.u_olds)
+#         print('dts: \n', self.delta_ts)
+        
+        ais = np.zeros(steps + 1)
+        tderivs = np.zeros(steps + 1)
+        tderivs[1] = 1
+        matrix=np.zeros(shape=(steps+1, steps+1))
+        for i in range(0, steps+1):
+            for j in range(0, steps+1):
+                matrix[i,j] = 1 / factorial(i) * (-1)**i * (self.delta_ts[j])**i
+#         print('matrix: \n', matrix)        
+        ais = np.linalg.inv(matrix) @ tderivs
+#         print('ais: \n', ais)
+        
+        summ = np.zeros(len(self.u))
+        for i in range(1, steps+1):
+#             print(i)
+            summ += ais[i] * self.u_olds[i]
+        newmatrix = self.L_op.matrix - ais[0]*np.identity(len(self.u))
+        solution = np.linalg.inv(newmatrix) @ summ
+#         print('summ: \n', summ)
+        solution = np.array(solution)
+        solution.resize((len(self.u)))
+#         print(solution)
+        return solution
+
 
 class BDFExtrapolate(IMEXTimestepper):
 
     def __init__(self, eq_set, steps):
         super().__init__(eq_set)
         self.steps = steps
-        self.Xs = deque()
-        self.Fs = deque()
-        self.X_past = [None]*(steps+1)
-        self.F_past = [None]*(steps+1)
-        self.a = 0
-        self.matrix = 0
+#         self.X_olds = [None] * (steps + 1) #array of X_olds
+#         self.F_olds = [None] * (steps + 1) #array of F_olds
+        self.f_list = deque()
+        self.x_list = deque()
+        
         for i in range(self.steps+1):
-            self.Fs.append(np.copy(self.F))
-            self.Xs.append(0)
-        pass
+            self.x_list.append(0)
+            self.f_list.append(np.copy(self.F))
+        
+#         self.t = 0
+#         self.iter = 0
+#         self.X = eq_set.X
+#         self.M = eq_set.M
+#         self.L = eq_set.L
+#         self.F = eq_set.F
+#         self.dt = None
+#         self.ais = None
 
     def _step(self, dt):
         
-        self.Xs.rotate()
-        self.Xs[1] = np.copy(self.X.data)
-        self.Fs.rotate()
-        
-        Fx = self.F(self.X)                  #What does this do?
-        self.Fs[1] = np.copy(Fx.data)
-        
-        #Determine steps
-        if (self.iter + 1) <= self.steps:
-            s = self.iter + 1
-            #calculate a coefficients
-            a = np.zeros(s+1)               # a is vector of ais
-            k = np.zeros(s+1)               # k is vector on right
-            k[1] = 1
-        
-            mat = np.zeros(shape=(s+1,s+1)) #mat is the matrix to be inverted to provide a
-            for i in range(0,s+1):
-                for j in range(0,s+1):
-                    mat[i,j] = 1/factorial(i)*((-1*(j)*dt)**(i))
-            a = np.linalg.inv(mat) @ k      # a = mat^(-1) * k
-            self.a = a
-            self.matrix = mat
-        else:
-            s = self.steps
-            a = self.a
-            mat = self.matrix
-         
-        
-        #calculate b coefficients         
-        b = np.zeros(s)
-        dt2s = np.zeros(s)
-        dt2s[0] = 1
-        
-        for j in range(1,s+1):
-            b[j-1] = (-1)**(j-1)*factorial(s)/(factorial(s-j)*factorial(j))
-        
-        #compute sum of fs and sum of ais starting at 1
-        a_tilde = np.zeros(self.X.N)
-        f_tilde = np.zeros(self.X.N)
-        for i in range(1,s+1):
-            a_tilde += a[i]*self.Xs[i]
-            f_tilde += b[i-1]*self.Fs[i]
-        
-        #finish solve
-        LHS = self.M*a[0]+self.L
-        RHS =f_tilde - self.M @ a_tilde
-        sol = spla.spsolve(LHS,RHS)
-        return sol
+        #fix step number if needed
+        steps = self.steps
+        if (self.iter+1) <= steps:
+            steps = self.iter + 1
+            
+        #compute ais
+        #fix the X_olds
+#         for i in range(1, len(self.X_olds)):
+#             self.X_olds[len(self.X_olds)-i] = self.X_olds[len(self.X_olds)-i-1]
+#         self.X_olds[0] = np.zeros(self.X.N)
+#         self.X_olds[1] = self.X
+        self.x_list.rotate()
+        self.x_list[1] = np.copy(self.X.data)
 
+    
+    
+        ais = np.zeros(steps + 1)
+        tderivs = np.zeros(steps + 1)
+        tderivs[1] = 1
+        matrix=np.zeros(shape=(steps+1, steps+1))
+        for i in range(0, steps+1):
+            for j in range(0, steps+1):
+                matrix[i,j] = 1 / factorial(i) * (-1)**i * (dt*j)**i        
+#         print(matrix)
+        ais = np.linalg.inv(matrix) @ tderivs
+    
+        #compute bis
+        #fix the F_olds
+        FX = self.F(self.X)
+#         for i in range(1, len(self.F_olds)):
+#             self.F_olds[len(self.F_olds)-i] = self.F_olds[len(self.F_olds)-i-1]
+#         self.F_olds[0] = np.zeros(self.X.N)
+#         self.F_olds[1] = self.FX
+        self.f_list.rotate()
+        self.f_list[1] = np.copy(FX.data)
+        
+#         print(self.F_olds)
+        
+#         bis = np.zeros(steps + 1)
+#         tderivs = np.zeros(steps + 1)
+#         tderivs[0] = 1
+#         matrix=np.zeros(shape=(steps + 1, steps + 1))
+#         for i in range(0, steps):
+#             for j in range(0, steps):
+#                 matrix[i,j] = 1 / factorial(i) * (-1)**i * (dt*(j))**i  
+#         print(matrix)
+#         bis = np.linalg.inv(matrix) @ tderivs
+        bis = np.zeros(steps)
+        for i in range(1,len(bis)+1):
+            bis[i-1] = ((-1) ** (i-1) * factorial(steps) / 
+                      (factorial(i)*factorial(steps - i)))
+        
+#         print('\n')
+#         print('ais\n', ais)
+#         print('bis\n', bis)
+#         print('\n')
+        
+        #compute f_tilda
+        f_tilda = np.zeros(self.X.N)
+        for i in range(1,steps+1):
+            f_tilda += bis[i-1]*self.f_list[i]
+        
+        #compute a sum 1
+        asum1 = np.zeros(self.X.N)
+        for i in range(1,steps+1):
+            asum1 += ais[i]*self.x_list[i]            
+        #solve for X^n
+        LHS = self.M*ais[0] + self.L
+        RHS = f_tilda - self.M @ asum1
+#         LHS_inv = spla.inv(RHS)
+        solution = spla.spsolve(LHS, RHS)
+        return solution
+        
+        
+class FullyImplicitTimestepper(Timestepper):
+
+    def __init__(self, eq_set, tol=1e-5):
+        super().__init__()
+        self.X = eq_set.X
+        self.M = eq_set.M
+        self.L = eq_set.L
+        self.F = eq_set.F
+        self.tol = tol
+        self.J = eq_set.J
+        
+    def step(self, dt, guess=None):
+        self.X.gather()
+        self.X.data = self._step(dt, guess)
+        self.X.scatter()
+        self.t += dt
+        self.iter += 1
+
+        
+class BackwardEulerFI(FullyImplicitTimestepper):
+
+    def _step(self, dt, guess):
+        if dt != self.dt:
+            self.LHS_matrix = self.M + dt*self.L
+            self.dt = dt
+
+        RHS = self.M @ self.X.data
+        if not (guess is None):
+            self.X.data[:] = guess
+        F = self.F(self.X)
+        LHS = self.LHS_matrix @ self.X.data - dt * F
+        residual = LHS - RHS
+        i_loop = 0
+        while np.max(np.abs(residual)) > self.tol:
+            jac = self.M + dt*self.L - dt*self.J(self.X)
+            dX = spla.spsolve(jac, -residual)
+            self.X.data += dX
+            F = self.F(self.X)
+            LHS = self.LHS_matrix @ self.X.data - dt * F
+            residual = LHS - RHS
+            i_loop += 1
+            if i_loop > 20:
+                print('error: reached more than 20 iterations')
+                break
+        return self.X.data
+
+
+class CrankNicolsonFI(FullyImplicitTimestepper):
+
+    def _step(self, dt, guess):      
+        if dt != self.dt:
+            self.LHS_matrix = self.M + dt/2 * self.L
+            self.RHS_matrix = self.M - dt/2 * self.L
+            self.dt = dt
+        F = self.F(self.X)
+        RHS = self.RHS_matrix @ self.X.data + dt/2 * F
+        if not (guess is None):
+            self.X.data[:] = guess
+        F = self.F(self.X)
+        LHS = self.LHS_matrix @ self.X.data - dt/2 * F
+        residual = LHS - RHS
+        i_loop = 0
+        while np.max(np.abs(residual)) > self.tol:
+            jac = self.M + dt/2 * self.L - dt/2 * self.J(self.X)
+            dX = spla.spsolve(jac, -residual)
+            self.X.data += dX
+            F = self.F(self.X)
+            LHS = self.LHS_matrix @ self.X.data - dt/2 * F
+            residual = LHS - RHS
+            i_loop += 1
+            if i_loop > 1000:
+                print('error: reached more than 50 iterations')
+                break
+        return self.X.data
