@@ -502,15 +502,15 @@ class BackwardEulerFI(FullyImplicitTimestepper):
 
 class CrankNicolsonFI(FullyImplicitTimestepper):
 
-    def _step(self, dt, guess):      
+    def _step(self, dt, est):      
         if dt != self.dt:
             self.LHS_matrix = self.M + dt/2 * self.L
             self.RHS_matrix = self.M - dt/2 * self.L
             self.dt = dt
         F = self.F(self.X)
         RHS = self.RHS_matrix @ self.X.data + dt/2 * F
-        if not (guess is None):
-            self.X.data[:] = guess
+        if not (est is None):
+            self.X.data[:] = est
         F = self.F(self.X)
         LHS = self.LHS_matrix @ self.X.data - dt/2 * F
         residual = LHS - RHS

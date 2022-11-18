@@ -328,9 +328,9 @@ class ReactionDiffusionFI:
     def __init__(self, c, D, spatial_order, grid):
         self.X = StateVector([c])
         d2 = finite.DifferenceUniformGrid(2, spatial_order, grid)
+        
         self.N = len(c)
         I = sparse.eye(self.N)
-        
         self.M = I
         self.L = -D*d2.matrix
 
@@ -339,8 +339,8 @@ class ReactionDiffusionFI:
         self.F = F
         
         def J(X):
-            c_matrix = sparse.diags(X.data)
-            return sparse.eye(self.N) - 2*c_matrix
+            c_mat = sparse.diags(X.data)
+            return sparse.eye(self.N) - 2*c_mat
         
         self.J = J
         
@@ -361,15 +361,15 @@ class BurgersFI:
         self.F = F
         
         def J(X):
-            u_matrix = sparse.diags(X.data)
+            u_mat = sparse.diags(X.data)
             I = sparse.eye(self.N)
             
             #first component: -dxu
-            comp1vals = -d.matrix @ X.data
-            comp1 = sparse.diags(comp1vals)
+            comp1values = -d.matrix @ X.data
+            comp1 = sparse.diags(comp1values)
             
             #second component -u * d/du (dxu)
-            comp2 = u_matrix @ (-d.matrix)
+            comp2 = u_mat @ (-d.matrix)
             
             return comp1 + comp2
             
